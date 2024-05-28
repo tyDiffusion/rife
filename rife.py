@@ -9,15 +9,15 @@ import tempfile
 import warnings
 import subprocess
 from queue import Queue
-import filetype
+#import filetype
 import cv2
 import numpy as np
 import torch
 from torch.nn import functional as F
-from rich import print # pylint: disable=redefined-builtin
-from rich.pretty import install as install_pretty
-from rich.traceback import install as install_traceback
-from tqdm.rich import tqdm
+#from rich import print # pylint: disable=redefined-builtin
+#from rich.pretty import install as install_pretty
+#from rich.traceback import install as install_traceback
+from tqdm import tqdm
 
 from model.ssim import ssim_matlab
 from model.RIFE_HDv3 import Model
@@ -51,7 +51,7 @@ def interpolate(args): # pylint: disable=redefined-outer-name
     if args.seq is None:
         for f in os.listdir(args.input):
             fn = os.path.join(args.input, f)
-            if os.path.isfile(fn) and filetype.is_image(fn):
+            if os.path.isfile(fn): # and filetype.is_image(fn):
                 videogen.append(fn)
     else:
         files = sorted(os.listdir(args.input))
@@ -83,7 +83,8 @@ def interpolate(args): # pylint: disable=redefined-outer-name
         if model.version >= 3.9:
             res = []
             for i in range(n):
-                res.append(model.inference(I0, I1, (i+1) * 1. / (n+1), args.scale))
+                interp = (i+1) * 1. / (n+1)
+                res.append(model.inference(I0, I1, interp, args.scale))
             return res
         else:
             middle = model.inference(I0, I1, args.scale)
@@ -118,7 +119,7 @@ def interpolate(args): # pylint: disable=redefined-outer-name
             I1 = pad(torch.from_numpy(np.transpose(frame, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.)
             I0_small = F.interpolate(I0, (32, 32), mode='bilinear', align_corners=False)
             I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
-            ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
+            ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])            
             if ssim > 0.99: # skip duplicate frames
                 continue
             if ssim < args.change:
@@ -128,18 +129,16 @@ def interpolate(args): # pylint: disable=redefined-outer-name
                 for _i in range(args.buffer):
                     output.append(I1)
             else:
-                output = execute(I0, I1, args.multi-1)
+                output = execute(I0, I1, args.multi)            
             for mid in output:
                 mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-                buffer.put(mid[:h, :w])
+                buffer.put(mid[:h, :w])    
             buffer.put(frame)
             pbar.update(1)
 
     print(f'padded end: frames={args.buffer}')
-    for _i in range(args.buffer): # fill ending frames
-        buffer.put(frame)
     while not buffer.empty():
-        time.sleep(0.5)
+        time.sleep(0.01)
     t1 = time.time()
     print(f'end interpolate: input={len(videogen)} frames={count} time={round(t1 - t0, 2)}')
 
@@ -169,7 +168,7 @@ def movie(args): # pylint: disable=redefined-outer-name
         print(f'removing images: path={args.output}')
         for f in os.listdir(args.output):
             fn = os.path.join(args.output, f)
-            if os.path.isfile(fn) and filetype.is_image(fn):
+            if os.path.isfile(fn): # and filetype.is_image(fn):
                 os.remove(fn)
     print(f'ffmpeg end: file={outfile}')
 
@@ -177,8 +176,8 @@ def movie(args): # pylint: disable=redefined-outer-name
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=UserWarning)
     warnings.filterwarnings("ignore", category=FutureWarning)
-    install_pretty()
-    install_traceback()
+    #install_pretty()
+    #install_traceback()
     print('starting rife')
     tmp_folder = os.path.join(tempfile.gettempdir(), f'rife-{time.strftime("%Y%m%d-%H%M%S")}')
     parser = argparse.ArgumentParser(description='interpolate video frames using RIFE')
