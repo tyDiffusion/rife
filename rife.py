@@ -24,6 +24,27 @@ from model.RIFE_HDv3 import Model
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def padNum(num):
+    neg = num < 0
+    
+    if (num < 0):
+        num = -num
+        
+    numStr = str(num)
+    if (len(numStr) == 4):
+        numStr = "0" + numStr
+    elif (len(numStr) == 3):
+        numStr = "00" + numStr
+    elif (len(numStr) == 2):
+        numStr = "000" + numStr
+    elif (len(numStr) == 1):
+        numStr = "0000" + numStr
+        
+    if (neg):
+        numStr = "-" + numStr
+        
+    return numStr
+    
 def getRIFEModel(modelPath, gpu, half):
     torch.set_grad_enabled(False)
     if gpu and torch.cuda.is_available():
@@ -62,7 +83,7 @@ def interpTwoFramesRIFE(model, gpu, half, img1, img2, inter_frames, save_num, sa
         nonlocal buffer
         while buffer.qsize() > 0:
             item = buffer.get()
-            filename = save_path + save_name + str(save_num) + ".png"
+            filename = save_path + save_name + padNum(save_num) + ".png"
             save_num += 1      
             newFrames.append(filename)
             cv2.imwrite(filename, item[:, :, ::-1])
